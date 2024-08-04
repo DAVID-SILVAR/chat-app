@@ -1,16 +1,34 @@
 const express = require('express');
 const http = require('http');
 const WebSocket = require('ws');
-const chatRoutes = require('./routes/chatRoutes');
-const { setupWebSocketServer } = require('./websocket/websocketServer');
+const path = require('path');
+const routes = require('./routes/index');
 
 const app = express();
 const server = http.createServer(app);
-const wss = setupWebSocketServer(server);
+const wss = new WebSocket.Server({ server });
 
-app.use('/', chatRoutes);
+wss.on('connection', (ws) => {
+  console.log('Client connected');
 
-app.use(express.static('public'));
+  ws.on('message', (message) => {
+    console.log(`Received message: ${message}`);
+
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(message);
+      }
+    });
+  });
+
+  ws.on('close', () => {
+    console.log('Client disconnected');
+  });
+});
+
+app.use(express.static(path.join(__dirname, 'views')));
+
+app.use('/', routes);
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
